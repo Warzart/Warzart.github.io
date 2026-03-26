@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Systeem Beveiliging</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+ 
+        /* Het container element voor de tekst */
+        .glitch-wrapper {
+            position: relative;
+        }
+ 
+        /* De hoofdtekst */
+        .hacked-text {
+            color: #0f0; /* Klassiek hacker groen */
+            font-size: 8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5rem;
+            position: relative;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.7);
+            animation: flicker 0.1s infinite alternate;
+        }
+ 
+        /* Glitch effect met pseudo-elementen */
+        .hacked-text::before,
+        .hacked-text::after {
+            content: 'HACKED';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.8;
+        }
+ 
+        /* De rode verschuiving */
+        .hacked-text::before {
+            color: #f00;
+            z-index: -1;
+            animation: glitch-red 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite both;
+        }
+ 
+        /* De blauwe verschuiving */
+        .hacked-text::after {
+            color: #00f;
+            z-index: -2;
+            animation: glitch-blue 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) reverse infinite both;
+        }
+ 
+        /* Animaties voor de verspringingen */
+        @keyframes glitch-red {
+            0% { transform: translate(0); }
+            20% { transform: translate(-5px, 5px); }
+            40% { transform: translate(-5px, -5px); }
+            60% { transform: translate(5px, 5px); }
+            80% { transform: translate(5px, -5px); }
+            100% { transform: translate(0); }
+        }
+ 
+        @keyframes glitch-blue {
+            0% { transform: translate(0); }
+            20% { transform: translate(5px, -5px); }
+            40% { transform: translate(5px, 5px); }
+            60% { transform: translate(-5px, -5px); }
+            80% { transform: translate(-5px, 5px); }
+            100% { transform: translate(0); }
+        }
+ 
+        /* Subtiele flikkering van de helderheid */
+        @keyframes flicker {
+            0% { opacity: 0.9; }
+            100% { opacity: 1; }
+        }
+ 
+        /* Extra decoratie: een scanline effect */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%,
+                rgba(0, 0, 0, 0.25) 50%
+            ), linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.06),
+                rgba(0, 255, 0, 0.02),
+                rgba(0, 0, 255, 0.06)
+            );
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+ 
+        /* Tekst onderaan voor extra effect */
+        .warning {
+            position: absolute;
+            bottom: 20px;
+            color: #0f0;
+            font-size: 1rem;
+            opacity: 0.6;
+            animation: pulse 2s infinite;
+        }
+ 
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+ 
+    <div class="scanlines"></div>
+ 
+    <div class="glitch-wrapper">
+        <h1 class="hacked-text">Hacked</h1>
+    </div>
+ 
+    <div class="warning">SLUIT JE SCHERM VOLGENDE KEER...</div>
+ 
+    <script>
+        // Voeg af en toe een willekeurige 'jump' toe aan de tekst voor extra realisme
+        const text = document.querySelector('.hacked-text');
+        
+        setInterval(() => {
+            if (Math.random() > 0.95) {
+                text.style.transform = `translateX(${Math.random() * 20 - 10}px)`;
+                setTimeout(() => {
+                    text.style.transform = 'translateX(0)';
+                }, 50);
+            }
+        }, 100);
+    </script>
+</body>
+</html>
