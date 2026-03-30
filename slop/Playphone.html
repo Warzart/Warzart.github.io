@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kinderspeel Telefoon</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        /* Display gedeelte */
+        #display {
+            flex: 0 0 20%;
+            background-color: #e0f7fa;
+            margin: 10px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: #333;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        /* Knoppen grid */
+        .grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .key {
+            border: none;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            transition: transform 0.1s;
+            cursor: pointer;
+            box-shadow: 0 5px #999;
+        }
+
+        .key:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px #666;
+        }
+
+        .key span {
+            font-size: 2.5rem;
+        }
+
+        /* Specifieke acties */
+        #big-emoji {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 15rem;
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+        }
+
+        .spin {
+            animation: spinRotate 1s linear infinite;
+        }
+
+        @keyframes spinRotate {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Belknoppen onderaan */
+        .controls {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            height: 15%;
+        }
+
+        .call-btn {
+            flex: 1;
+            border: none;
+            border-radius: 50px;
+            font-size: 2rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .green { background-color: #4CAF50; }
+        .red { background-color: #f44336; }
+
+        .ringing {
+            animation: shake 0.5s infinite;
+        }
+
+        @keyframes shake {
+            0% { transform: rotate(0); }
+            25% { transform: rotate(5deg); }
+            75% { transform: rotate(-5deg); }
+            100% { transform: rotate(0); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="display">...</div>
+
+<div class="grid" id="keypad">
+    </div>
+
+<div class="controls">
+    <button class="call-btn green" onclick="makeCall()">📞</button>
+    <button class="call-btn red" onclick="endCall()">✖</button>
+</div>
+
+<div id="big-emoji"></div>
+
+<script>
+    const buttons = [
+        { n: '1', e: '🐶', c: '#FF5722' }, { n: '2', e: '🐱', c: '#E91E63' }, { n: '3', e: '🐭', c: '#9C27B0' },
+        { n: '4', e: '🐸', c: '#2196F3' }, { n: '5', e: '🐯', c: '#00BCD4' }, { n: '6', e: '🦁', c: '#4CAF50' },
+        { n: '7', e: '🐷', c: '#FFEB3B' }, { n: '8', e: '🐙', c: '#FF9800' }, { n: '9', e: '🦄', c: '#795548' },
+        { n: '*', e: '⭐', c: '#607D8B' }, { n: '0', e: '🎈', c: '#F44336' }, { n: '#', e: '🌈', c: '#3F51B5' }
+    ];
+
+    const display = document.getElementById('display');
+    const keypad = document.getElementById('keypad');
+    const bigEmoji = document.getElementById('big-emoji');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Geluid genereren
+    function playTone(freq) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    // Knoppen maken
+    buttons.forEach((btn, index) => {
+        const b = document.createElement('button');
+        b.className = 'key';
+        b.style.backgroundColor = btn.c;
+        b.innerHTML = `<span>${btn.e}</span>${btn.n}`;
+        b.onclick = () => {
+            playTone(200 + (index * 50));
+            display.innerText = (display.innerText === '...' ? '' : display.innerText) + btn.e;
+            
+            // Random effect: Confetti of Groot draaiend icoon
+            const rand = Math.random();
+            if (rand > 0.8) {
+                showBigEmoji(btn.e);
+            } else if (rand > 0.6) {
+                confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+            }
+        };
+        keypad.appendChild(b);
+    });
+
+    function showBigEmoji(emoji) {
+        bigEmoji.innerText = emoji;
+        bigEmoji.style.display = 'block';
+        bigEmoji.classList.add('spin');
+        setTimeout(() => {
+            bigEmoji.style.display = 'none';
+            bigEmoji.classList.remove('spin');
+        }, 1500);
+    }
+
+    let callInterval;
+    function makeCall() {
+        if(callInterval) return;
+        document.querySelector('.green').classList.add('ringing');
+        display.innerText = "Bellen... ☎️";
+        // Simuleer beltoon geluid
+        callInterval = setInterval(() => playTone(440), 1000);
+    }
+
+    function endCall() {
+        clearInterval(callInterval);
+        callInterval = null;
+        document.querySelector('.green').classList.remove('ringing');
+        display.innerText = "Ophangen 👋";
+        setTimeout(() => display.innerText = "...", 2000);
+    }
+</script>
+
+</body>
+</html>

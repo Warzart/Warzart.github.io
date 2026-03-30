@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactief Rad van Fortuin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: radial-gradient(circle, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        #wheel-container {
+            position: relative;
+            width: 90vw;
+            max-width: 500px;
+            aspect-ratio: 1/1;
+            margin: 20px auto;
+        }
+
+        #wheel-canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5), 0 0 20px rgba(255,255,255,0.1);
+            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
+        }
+
+        #pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 50px;
+            fill: #ff4d4d;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+            z-index: 10;
+        }
+
+        .center-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1a1a2e;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 5;
+            user-select: none;
+            transition: transform 0.1s;
+        }
+
+        .center-button:active {
+            transform: translate(-50%, -50%) scale(0.9);
+        }
+
+        .input-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Verberg scrollbar voor nette look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        
+        <!-- Linker kant: Het Rad -->
+        <div class="flex flex-col items-center">
+            <h1 class="text-3xl md:text-5xl font-800 mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+                Rad van Fortuin
+            </h1>
+            
+            <div id="wheel-container">
+                <svg id="pointer" viewBox="0 0 24 24">
+                    <path d="M12 21l-8-14h16l-8 14z"/>
+                </svg>
+                <canvas id="wheel-canvas" width="1000" height="1000"></canvas>
+                <div class="center-button shadow-lg hover:bg-gray-100" onclick="spinWheel()">
+                    DRAAI!
+                </div>
+            </div>
+
+            <div id="result-display" class="mt-8 text-2xl font-semibold min-h-[40px] text-center text-yellow-400">
+                Tik op het rad om te beginnen
+            </div>
+        </div>
+
+        <!-- Rechter kant: Instellingen -->
+        <div class="input-card p-6 shadow-2xl">
+            <h2 class="text-xl font-semibold mb-4 flex justify-between items-center">
+                Vlakken Instellen
+                <button onclick="addSegment()" class="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-full transition">
+                    + Vlak Toevoegen
+                </button>
+            </h2>
+            
+            <div id="segments-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                <!-- Dynamische inputs komen hier -->
+            </div>
+
+            <div class="mt-6 pt-6 border-t border-white/10 flex gap-4">
+                <button onclick="resetColors()" class="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl transition text-sm">
+                    Kleuren Resetten
+                </button>
+                <button onclick="clearAll()" class="flex-1 bg-red-500/20 hover:bg-red-500/40 text-red-300 py-3 rounded-xl transition text-sm">
+                    Wis Alles
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Geluidseffecten (optioneel, maar we doen hier een visuele klik) -->
+    
+    <script>
+        const canvas = document.getElementById('wheel-canvas');
+        const ctx = canvas.getContext('2d');
+        const resultDisplay = document.getElementById('result-display');
+        const segmentsList = document.getElementById('segments-list');
+
+        let segments = [
+            { text: 'Prijs 1', color: '#FF5733' },
+            { text: 'Nietes', color: '#33FF57' },
+            { text: 'Nieuwe Kans', color: '#3357FF' },
+            { text: 'Jackpot', color: '#F333FF' },
+            { text: 'Pech', color: '#FF33A1' },
+            { text: 'Bonus', color: '#33FFF5' }
+        ];
+
+        let currentRotation = 0;
+        let isSpinning = false;
+
+        const niceColors = ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#FF33A1', '#33FFF5', '#FFBD33', '#7533FF'];
+
+        function init() {
+            renderInputs();
+            drawWheel();
+        }
+
+        function renderInputs() {
+            segmentsList.innerHTML = '';
+            segments.forEach((seg, index) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-3 animate-fadeIn';
+                div.innerHTML = `
+                    <input type="color" value="${seg.color}" onchange="updateColor(${index}, this.value)" 
+                        class="w-10 h-10 rounded cursor-pointer bg-transparent border-none">
+                    <input type="text" value="${seg.text}" oninput="updateText(${index}, this.value)" 
+                        class="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Naam van vak...">
+                    <button onclick="removeSegment(${index})" class="text-white/40 hover:text-red-400 p-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                `;
+                segmentsList.appendChild(div);
+            });
+        }
+
+        function drawWheel() {
+            const size = canvas.width;
+            const center = size / 2;
+            const radius = size / 2 - 20;
+            const sliceAngle = (2 * Math.PI) / segments.length;
+
+            ctx.clearRect(0, 0, size, size);
+
+            segments.forEach((seg, i) => {
+                const startAngle = i * sliceAngle;
+                
+                // Teken segment
+                ctx.beginPath();
+                ctx.fillStyle = seg.color;
+                ctx.moveTo(center, center);
+                ctx.arc(center, center, radius, startAngle, startAngle + sliceAngle);
+                ctx.closePath();
+                ctx.fill();
+
+                // Teken randje om segment
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Teken tekst
+                ctx.save();
+                ctx.translate(center, center);
+                ctx.rotate(startAngle + sliceAngle / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "white";
+                ctx.font = "bold 34px Poppins";
+                ctx.shadowBlur = 4;
+                ctx.shadowColor = "rgba(0,0,0,0.5)";
+                // Zorg dat tekst niet over het midden valt
+                ctx.fillText(seg.text, radius - 40, 12);
+                ctx.restore();
+            });
+
+            // Teken buitenrand
+            ctx.beginPath();
+            ctx.arc(center, center, radius, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 10;
+            ctx.stroke();
+        }
+
+        function spinWheel() {
+            if (isSpinning || segments.length === 0) return;
+            
+            isSpinning = true;
+            resultDisplay.textContent = "Spannend...";
+            resultDisplay.classList.remove('animate-bounce');
+
+            // Bepaal random draai (minimaal 5 rondjes + random extra)
+            const extraDegrees = Math.floor(Math.random() * 360);
+            const totalSpins = 5 + Math.floor(Math.random() * 5);
+            const newRotation = currentRotation + (totalSpins * 360) + extraDegrees;
+            
+            canvas.style.transform = `rotate(${newRotation}deg)`;
+            currentRotation = newRotation;
+
+            setTimeout(() => {
+                isSpinning = false;
+                calculateWinner(newRotation);
+            }, 4000);
+        }
+
+        function calculateWinner(rotation) {
+            // De wijzer staat boven (270 graden in canvas termen, of -90)
+            // We moeten berekenen welk segment daar nu is
+            const normalizedRotation = rotation % 360;
+            const sliceSize = 360 / segments.length;
+            
+            // Corrigeer voor het feit dat 0 graden rechts is en de wijzer boven staat
+            // Formule: (360 - (rotatie - 90)) % 360
+            let winningIndex = Math.floor((360 - (normalizedRotation + 90)) % 360 / sliceSize);
+            if (winningIndex < 0) winningIndex += segments.length;
+            
+            const winner = segments[winningIndex % segments.length];
+            resultDisplay.textContent = `Gefeliciteerd: ${winner.text}!`;
+            resultDisplay.classList.add('animate-bounce');
+        }
+
+        function addSegment() {
+            const color = niceColors[segments.length % niceColors.length];
+            segments.push({ text: `Vlak ${segments.length + 1}`, color: color });
+            renderInputs();
+            drawWheel();
+        }
+
+        function removeSegment(index) {
+            if (segments.length <= 1) return;
+            segments.splice(index, 1);
+            renderInputs();
+            drawWheel();
+        }
+
+        function updateText(index, val) {
+            segments[index].text = val;
+            drawWheel();
+        }
+
+        function updateColor(index, val) {
+            segments[index].color = val;
+            drawWheel();
+        }
+
+        function resetColors() {
+            segments.forEach((seg, i) => {
+                seg.color = niceColors[i % niceColors.length];
+            });
+            renderInputs();
+            drawWheel();
+        }
+
+        function clearAll() {
+            segments = [{ text: 'Nieuw', color: '#444444' }];
+            renderInputs();
+            drawWheel();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
+

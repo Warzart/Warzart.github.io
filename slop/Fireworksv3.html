@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Multitouch Vuurwerk - Verbeterde Clusters</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            touch-action: none;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            pointer-events: none;
+            font-family: sans-serif;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+            transition: opacity 1s;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1 class="text-3xl font-bold mb-2">Houd je scherm vast!</h1>
+        <p class="text-lg opacity-70">Multitouch & Verbeterde Cluster-bommen</p>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const ui = document.getElementById('ui');
+
+        let width, height;
+        let rockets = [];
+        let particles = [];
+        let activeTouches = new Map();
+        let audioCtx = null;
+
+        // Configuratie
+        const ROCKET_SPAWN_RATE = 200; 
+        const WHISTLE_CHANCE = 0.3;     
+        const CLUSTER_CHANCE = 0.3;     
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- AUDIO ENGINE ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playWhistle(duration) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + duration);
+            gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playExplosion(isLarge = false, volumeAdjust = 1) {
+            if (!audioCtx) return;
+            const duration = isLarge ? 1.2 : 0.4;
+            const volume = (isLarge ? 0.25 : 0.08) * volumeAdjust;
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(isLarge ? 120 : 200, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+
+            const bufferSize = audioCtx.sampleRate * duration;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize / 4));
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.value = volume;
+            noise.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noise.start();
+        }
+
+        // --- CLASSES ---
+
+        class Particle {
+            constructor(x, y, hue, speedMult = 1, canCluster = false, isSubParticle = false) {
+                this.x = x;
+                this.y = y;
+                this.hue = hue;
+                this.canCluster = canCluster;
+                this.isSubParticle = isSubParticle;
+                
+                this.angle = Math.random() * Math.PI * 2;
+                this.speed = (Math.random() * (isSubParticle ? 4 : 8) + 2) * speedMult;
+                this.friction = isSubParticle ? 0.92 : 0.95;
+                this.gravity = isSubParticle ? 0.1 : 0.15;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.01 + (isSubParticle ? 0.02 : 0.01);
+                this.life = 0;
+                this.clusterDelay = Math.random() * 20 + 20; // Tijd tot tweede klap
+            }
+
+            update() {
+                this.speed *= this.friction;
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed + this.gravity;
+                this.alpha -= this.decay;
+                this.life++;
+
+                // De "Fix": Als het een cluster-deeltje is en de tijd is daar, explodeer opnieuw
+                if (this.canCluster && this.life >= this.clusterDelay) {
+                    this.canCluster = false;
+                    // Maak een zichtbaar tweede effect (nieuwe deeltjes)
+                    createExplosion(this.x, this.y, (this.hue + 40) % 360, 0.6, 12, false, true);
+                    playExplosion(false, 0.5); // Zacht geluidje voor sub-klap
+                }
+
+                return this.alpha > 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                // Sub-deeltjes zijn feller/witter
+                const l = this.isSubParticle ? 80 : 60;
+                ctx.fillStyle = `hsl(${this.hue}, 100%, ${l}%)`;
+                ctx.beginPath();
+                const size = this.isSubParticle ? 1.5 : 2.5;
+                ctx.arc(this.x, this.y, size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Rocket {
+            constructor(tx, ty) {
+                this.x = width / 2 + (Math.random() * 100 - 50);
+                this.y = height;
+                this.tx = tx;
+                this.ty = ty;
+                this.hue = Math.random() * 360;
+                this.speed = 3;
+                this.accel = 1.06;
+                this.angle = Math.atan2(ty - this.y, tx - this.x);
+                this.whistling = Math.random() < WHISTLE_CHANCE;
+                this.isCluster = Math.random() < CLUSTER_CHANCE;
+                
+                if (this.whistling) {
+                    const dist = Math.sqrt(Math.pow(tx-this.x, 2) + Math.pow(ty-this.y, 2));
+                    playWhistle(dist / 400);
+                }
+            }
+
+            update() {
+                this.speed *= this.accel;
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+
+                let dist = Math.sqrt(Math.pow(this.tx - this.x, 2) + Math.pow(this.ty - this.y, 2));
+                if (dist <= this.speed) {
+                    createExplosion(this.tx, this.ty, this.hue, this.isCluster ? 1.4 : 1, 60, this.isCluster, false);
+                    playExplosion(this.isCluster);
+                    return false;
+                }
+                return true;
+            }
+
+            draw() {
+                ctx.strokeStyle = `hsl(${this.hue}, 100%, 75%)`;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - Math.cos(this.angle) * 18, this.y - Math.sin(this.angle) * 18);
+                ctx.stroke();
+            }
+        }
+
+        function createExplosion(x, y, hue, size, count, clusters, isSub) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, hue, size, clusters, isSub));
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.globalCompositeOperation = 'lighter';
+
+            rockets = rockets.filter(r => {
+                r.draw();
+                return r.update();
+            });
+
+            particles = particles.filter(p => {
+                p.draw();
+                return p.update();
+            });
+
+            activeTouches.forEach((touchData, id) => {
+                const now = Date.now();
+                if (now - touchData.lastSpawn > ROCKET_SPAWN_RATE) {
+                    rockets.push(new Rocket(touchData.x, touchData.y));
+                    touchData.lastSpawn = now;
+                }
+            });
+        }
+
+        // --- INPUT HANDLING ---
+        function handleStart(id, x, y) {
+            initAudio();
+            ui.style.opacity = '0';
+            if (!activeTouches.has(id)) {
+                activeTouches.set(id, { x, y, lastSpawn: 0 });
+                // Direct eerste schot bij tik
+                rockets.push(new Rocket(x, y));
+            }
+        }
+
+        function handleMove(id, x, y) {
+            if (activeTouches.has(id)) {
+                let t = activeTouches.get(id);
+                t.x = x;
+                t.y = y;
+            }
+        }
+
+        function handleEnd(id) {
+            activeTouches.delete(id);
+        }
+
+        window.addEventListener('mousedown', e => handleStart('mouse', e.clientX, e.clientY));
+        window.addEventListener('mousemove', e => handleMove('mouse', e.clientX, e.clientY));
+        window.addEventListener('mouseup', () => handleEnd('mouse'));
+
+        window.addEventListener('touchstart', e => {
+            e.preventDefault();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                handleStart(t.identifier, t.clientX, t.clientY);
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchmove', e => {
+            e.preventDefault();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                handleMove(t.identifier, t.clientX, t.clientY);
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', e => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                handleEnd(e.changedTouches[i].identifier);
+            }
+        });
+
+        animate();
+    </script>
+</body>
+</html>
+
