@@ -7,9 +7,9 @@ title: Overzicht
 
 <ul>
   {% for p in site.static_files %}
-    {% if p.path contains page.dir and p.url != page.url and p.name contains '.html' %}
+    {% if p.path contains page.dir and p.extname == ".html" %}
       <li>
-        <a href="{{ p.path | relative_url }}">{{ p.title | default: p.name }}</a>
+        <a href="{{ p.path | relative_url }}">{{ p.name }}</a>
       </li>
     {% endif %}
   {% endfor %}
