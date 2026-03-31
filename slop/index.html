@@ -10,6 +10,11 @@ title: Overzicht
     {% if p.path contains page.dir and p.extname == ".html" %}
       <li>
         <a href="{{ p.path | relative_url }}">{{ p.name }}</a>
+     <p>  {{ p.path | relative_url }}  </p>
+        <p>  {{ p.path }}  </p>
+        <p>  {{  relative_url }}  </p>
+        <a href="{{ p.name }}">{{ p.name }}</a>
+      
       </li>
     {% endif %}
   {% endfor %}
