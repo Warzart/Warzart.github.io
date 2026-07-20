@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snel Gebaren Leren 🎈</title>
+    <!-- Tailwind CSS voor een modern en vrolijk design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@500;700&display=swap');
+        body {
+            font-family: 'Quicksand', sans-serif;
+        }
+        h1, .font-playful {
+            font-family: 'Fredoka One', cursive;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-amber-50 to-orange-100 min-h-screen flex flex-col items-center justify-between p-4 text-slate-800">
+
+    <!-- Bovenkant: Header -->
+    <header class="w-full max-w-md text-center mt-6">
+        <span class="text-4xl">🤟</span>
+        <h1 class="text-3xl text-orange-600 mt-2 tracking-wide">Gebaren Kwartier</h1>
+        <p class="text-sm text-slate-500 mt-1">Snel een nieuw gebaar leren (3-6 jaar)</p>
+    </header>
+
+    <!-- Midden: Kaart met geselecteerd woord -->
+    <main class="w-full max-w-md bg-white rounded-3xl shadow-xl border-4 border-orange-200 p-8 my-6 text-center relative overflow-hidden">
+        <!-- Decoratie bollen -->
+        <div class="absolute -top-10 -left-10 w-24 h-24 bg-yellow-200 rounded-full opacity-40"></div>
+        <div class="absolute -bottom-10 -right-10 w-24 h-24 bg-orange-200 rounded-full opacity-40"></div>
+
+        <div class="relative z-10">
+            <p class="text-xs font-bold uppercase tracking-widest text-orange-400 mb-2">Woord van het moment</p>
+            
+            <!-- Gekozen woord display -->
+            <div id="word-category" class="inline-block bg-orange-100 text-orange-700 text-xs px-3 py-1 rounded-full font-bold mb-4">
+                Laden...
+            </div>
+            
+            <div id="word-display" class="font-playful text-5xl text-orange-600 my-4 drop-shadow-sm min-h-[60px]">
+                ...
+            </div>
+
+            <!-- Voortgangsbalk voor de redirect -->
+            <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden my-6">
+                <div id="progress-bar" class="bg-gradient-to-r from-orange-400 to-yellow-400 h-full w-0 transition-all duration-100 linear"></div>
+            </div>
+
+            <p id="status-text" class="text-sm text-slate-500 italic mb-6">Een momentje, we zoeken het gebaar op...</p>
+
+            <!-- Actieknoppen -->
+            <div class="flex flex-col gap-3">
+                <button id="btn-go" onclick="redirectToSign()" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all text-lg">
+                    Nu openen 🚀
+                </button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btn-pause" onclick="togglePause()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition-colors">
+                        Pauzeren ⏸️
+                    </button>
+                    <button onclick="pickRandomWord()" class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-bold py-3 px-4 rounded-xl text-sm transition-colors">
+                        Ander woord 🎲
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Onderkant: Volledige Lijst & Info -->
+    <footer class="w-full max-w-md bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 mb-6 shadow-sm">
+        <button onclick="toggleList()" class="w-full flex justify-between items-center font-bold text-slate-700 text-sm">
+            <span>📖 Bekijk alle 100 woorden</span>
+            <span id="list-toggle-icon">▼</span>
+        </button>
+
+        <div id="words-list-container" class="hidden mt-4 pt-4 border-t border-slate-100 max-h-60 overflow-y-auto">
+            <p class="text-xs text-slate-400 mb-3">Klik op een woord om direct naar het gebaar te gaan:</p>
+            <div id="categories-container" class="space-y-4">
+                <!-- Word categories will be rendered here dynamically -->
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script met data en logica -->
+    <script>
+        // Lijst van 100 woorden ingedeeld in categorieën voor kinderen 3-6 jaar
+        const wordCategories = {
+            "Dieren 🦁": [
+                "Aap", "Beer", "Olifant", "Giraffe", "Leeuw", "Krokodil", "Kikker", "Eend", "Konijn", "Hond", 
+                "Kat", "Vogel", "Vis", "Paard", "Koe", "Schaap", "Varken", "Muis", "Vlinder", "Spin"
+            ],
+            "Eten & Drinken 🍎": [
+                "Eten", "Drinken", "Appel", "Banaan", "Brood", "Melk", "Water", "Sap", "Koekje", "Snoepje", 
+                "Groente", "Fruit", "Ijsje", "Warm", "Koud", "Lekker", "Vies", "Bord", "Beker", "Samen"
+            ],
+            "Mensen & Familie 🧑‍🧑‍🧒": [
+                "Mama", "Papa", "Opa", "Oma", "Baby", "Broer", "Zus", "Vriendje", "Vriendinnetje", "Juf", 
+                "Meester", "Dokter", "Politie", "Kind", "Mensen"
+            ],
+            "Routine & Thuis 🏠": [
+                "Slapen", "Wakker", "Tandenpoetsen", "Aankleden", "Douchen", "Bad", "Bed", "Wc", "Wassen", 
+                "Opruimen", "School", "Thuis", "Stoel", "Tafel", "Schoenen", "Jas"
+            ],
+            "Spelen & Activiteiten 🧸": [
+                "Spelen", "Speelgoed", "Pop", "Auto", "Boek", "Tekenen", "Kleuren", "Buiten", "Binnen", 
+                "Glijbaan", "Schommel", "Fiets", "Wandelen", "Zingen", "Dansen", "Bouwen", "Klei", "Bal"
+            ],
+            "Gevoelens & Concepten ❤️": [
+                "Blij", "Verdrietig", "Boos", "Bang", "Moe", "Pijn", "Lief", "Knuffel", "Kus", "Lachen", 
+                "Huilen", "Ja", "Nee", "Alsjeblieft", "Dankjewel", "Stoppen", "Klaar", "Wachten", "Delen", "Helpen"
+            ]
+        };
+
+        // Flatten de lijst voor eenvoudige willekeurige selectie
+        let allWords = [];
+        for (const [category, words] of Object.entries(wordCategories)) {
+            words.forEach(word => {
+                allWords.push({ word, category });
+            });
+        }
+
+        let selectedWordObj = null;
+        let countdownTimer = null;
+        let isPaused = false;
+        const countdownDuration = 1500; // 1,5 seconde
+        let startTime = null;
+        let elapsedBeforePause = 0;
+
+        // Kies een willekeurig woord en start timer
+        function pickRandomWord() {
+            resetTimer();
+            const randomIndex = Math.floor(Math.random() * allWords.length);
+            selectedWordObj = allWords[randomIndex];
+            
+            document.getElementById('word-display').innerText = selectedWordObj.word;
+            document.getElementById('word-category').innerText = selectedWordObj.category;
+            
+            isPaused = false;
+            document.getElementById('btn-pause').innerText = "Pauzeren ⏸️";
+            document.getElementById('status-text').innerText = "Een momentje, we zoeken het gebaar op...";
+            
+            startCountdown();
+        }
+
+        // Start of hervat de countdown
+        function startCountdown() {
+            startTime = Date.now() - elapsedBeforePause;
+            
+            function update() {
+                if (isPaused) return;
+                
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min((elapsed / countdownDuration) * 100, 100);
+                
+                document.getElementById('progress-bar').style.width = `${progress}%`;
+                
+                if (elapsed < countdownDuration) {
+                    countdownTimer = requestAnimationFrame(update);
+                } else {
+                    redirectToSign();
+                }
+            }
+            
+            countdownTimer = requestAnimationFrame(update);
+        }
+
+        // Pauzeer of hervat de timer
+        function togglePause() {
+            if (isPaused) {
+                // Hervat
+                isPaused = false;
+                document.getElementById('btn-pause').innerText = "Pauzeren ⏸️";
+                document.getElementById('status-text').innerText = "Een momentje, we zoeken het gebaar op...";
+                startCountdown();
+            } else {
+                // Pauzeer
+                isPaused = true;
+                cancelAnimationFrame(countdownTimer);
+                elapsedBeforePause = Date.now() - startTime;
+                document.getElementById('btn-pause').innerText = "Hervatten ▶️";
+                document.getElementById('status-text').innerText = "Automatisch doorsturen gepauzeerd.";
+            }
+        }
+
+        // Reset alle timer variabelen
+        function resetTimer() {
+            cancelAnimationFrame(countdownTimer);
+            elapsedBeforePause = 0;
+            document.getElementById('progress-bar').style.width = '0%';
+        }
+
+        // Stuur de gebruiker door naar het Gebarencentrum
+        function redirectToSign(wordToUse = null) {
+            const word = wordToUse || selectedWordObj.word;
+            const url = `https://ow.gebarencentrum.nl/search?q=${encodeURIComponent(word)}`;
+            window.location.href = url;
+        }
+
+        // Toon/verberg de complete woordenlijst
+        function toggleList() {
+            const container = document.getElementById('words-list-container');
+            const icon = document.getElementById('list-toggle-icon');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                icon.innerText = '▲';
+                // Als ze de lijst bekijken, pauzeren we de redirect even voor het gemak
+                if (!isPaused) togglePause();
+            } else {
+                container.classList.add('hidden');
+                icon.innerText = '▼';
+            }
+        }
+
+        // Bouw de interactieve woordenlijst op
+        function buildWordsList() {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = '';
+
+            for (const [category, words] of Object.entries(wordCategories)) {
+                const catDiv = document.createElement('div');
+                catDiv.className = 'space-y-1.5';
+                
+                const title = document.createElement('h4');
+                title.className = 'text-xs font-bold text-orange-500 uppercase tracking-wide mt-2';
+                title.innerText = category;
+                catDiv.appendChild(title);
+
+                const buttonsDiv = document.createElement('div');
+                buttonsDiv.className = 'flex flex-wrap gap-1.5';
+
+                words.forEach(word => {
+                    const btn = document.createElement('button');
+                    btn.className = 'bg-slate-50 hover:bg-orange-50 border border-slate-200 hover:border-orange-200 text-slate-700 hover:text-orange-700 text-xs py-1 px-2.5 rounded-lg transition-colors';
+                    btn.innerText = word;
+                    btn.onclick = () => {
+                        redirectToSign(word);
+                    };
+                    buttonsDiv.appendChild(btn);
+                });
+
+                catDiv.appendChild(buttonsDiv);
+                container.appendChild(catDiv);
+            }
+        }
+
+        // Start de applicatie bij laden
+        window.onload = function() {
+            buildWordsList();
+            pickRandomWord();
+        };
+    </script>
+</body>
+</html>
+
